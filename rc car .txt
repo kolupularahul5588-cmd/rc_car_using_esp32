@@ -1,0 +1,1348 @@
+==================================================
+ESP32 4WD STUNT CAR - COMPLETE CODE
+==================================================
+Filename: ESP32_4WD_Stunt_Car.ino
+==================================================
+
+#include <WiFi.h>
+#include <WebServer.h>
+
+// Motor driver pins - L298N connections
+#define IN1 27  // Left motor control 1
+#define IN2 26  // Left motor control 2
+#define IN3 25  // Right motor control 1
+#define IN4 33  // Right motor control 2
+#define ENA 14  // Left motor enable (PWM)
+#define ENB 12  // Right motor enable (PWM)
+
+const char* ssid = "ESP32_CAR";
+const char* password = "12345678";
+
+WebServer server(80);
+
+// Motor states
+String currentCommand = "stop";
+unsigned long commandStartTime = 0;
+const unsigned long commandDuration = 5000; // Run for 5 seconds then stop
+
+// ================= BASIC MOVEMENT FUNCTIONS =================
+
+void forward() {
+  Serial.println("Moving FORWARD for 5 seconds");
+  // Both motors forward
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  currentCommand = "forward";
+  commandStartTime = millis();
+  server.send(200, "text/plain", "OK");
+}
+
+void backward() {
+  Serial.println("Moving BACKWARD for 5 seconds");
+  // Both motors backward
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  currentCommand = "backward";
+  commandStartTime = millis();
+  server.send(200, "text/plain", "OK");
+}
+
+void left() {
+  Serial.println("Spinning LEFT for 5 seconds");
+  // Left motors backward, right motors forward = spin left
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  currentCommand = "left";
+  commandStartTime = millis();
+  server.send(200, "text/plain", "OK");
+}
+
+void right() {
+  Serial.println("Spinning RIGHT for 5 seconds");
+  // Left motors forward, right motors backward = spin right
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  currentCommand = "right";
+  commandStartTime = millis();
+  server.send(200, "text/plain", "OK");
+}
+
+// ================= 4WD OPTIMIZED STUNTS =================
+
+// Stunt 1: Tank Spin (spins in place like a tank)
+void tankSpin() {
+  Serial.println("STUNT: Tank Spin!");
+  // Spin right in place
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(2000);
+  
+  // Stop briefly
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  delay(300);
+  
+  // Spin left in place
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(2000);
+  
+  // Stop
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+// Stunt 2: Crab Walk (diagonal movement)
+void crabWalk() {
+  Serial.println("STUNT: Crab Walk!");
+  for(int i = 0; i < 4; i++) {
+    // Move diagonally right (left forward, right stopped)
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, LOW);
+    delay(500);
+    
+    // Move diagonally left (right forward, left stopped)
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    delay(500);
+  }
+  
+  // Stop
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+// Stunt 3: Drift Circle (wide circle while drifting)
+void driftCircle() {
+  Serial.println("STUNT: Drift Circle!");
+  // Forward with slight right bias = wide right circle
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(800);
+  
+  // Hard right drift
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(1500);
+  
+  // Forward
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(800);
+  
+  // Hard left drift
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(1500);
+  
+  // Stop
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+// Stunt 4: Power Slide (sideways slide)
+void powerSlide() {
+  Serial.println("STUNT: Power Slide!");
+  // Forward fast
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(1000);
+  
+  // Slide right (lock left wheels, spin right wheels)
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(400);
+  
+  // Forward
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(800);
+  
+  // Slide left (lock right wheels, spin left wheels)
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  delay(400);
+  
+  // Stop
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+// Stunt 5: Helicopter Spin (fast alternating spins)
+void helicopterSpin() {
+  Serial.println("STUNT: Helicopter Spin!");
+  for(int i = 0; i < 6; i++) {
+    // Quick spin right
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    delay(200);
+    
+    // Quick spin left
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    delay(200);
+  }
+  
+  // Final spin right
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(800);
+  
+  // Stop
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+// Stunt 6: Snake Dance (S-shaped movement)
+void snakeDance() {
+  Serial.println("STUNT: Snake Dance!");
+  for(int i = 0; i < 3; i++) {
+    // Forward with slight right
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    delay(400);
+    
+    // Curve right
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    delay(300);
+    
+    // Forward
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    delay(400);
+    
+    // Curve left
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    delay(300);
+  }
+  
+  // Stop
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+// Stunt 7: Moonwalk (backward while looking forward)
+void moonwalk() {
+  Serial.println("STUNT: Moonwalk!");
+  // Backward slow
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(1500);
+  
+  // Spin around
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(800);
+  
+  // Forward slow
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(1500);
+  
+  // Spin back
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(800);
+  
+  // Stop
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+// Stunt 8: Donut (tight circle)
+void donut() {
+  Serial.println("STUNT: Donut!");
+  // Lock one side, spin the other = tight circle
+  for(int i = 0; i < 2; i++) {
+    // Right donut (left wheels stopped, right wheels forward)
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    delay(2000);
+    
+    // Left donut (right wheels stopped, left wheels forward)
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, LOW);
+    delay(2000);
+  }
+  
+  // Stop
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+// Stunt 9: Bounce (forward-backward bounce)
+void bounce() {
+  Serial.println("STUNT: Bounce!");
+  for(int i = 0; i < 5; i++) {
+    // Forward burst
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    delay(200);
+    
+    // Stop
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, LOW);
+    delay(100);
+    
+    // Backward burst
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    delay(200);
+    
+    // Stop
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, LOW);
+    delay(100);
+  }
+  
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+// Stunt 10: 4WD Crawl (crab-like side movement)
+void fourWDCrawl() {
+  Serial.println("STUNT: 4WD Crawl!");
+  for(int i = 0; i < 3; i++) {
+    // Move right (left forward, right backward)
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+    delay(600);
+    
+    // Stop
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, LOW);
+    delay(200);
+    
+    // Move left (left backward, right forward)
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+    delay(600);
+    
+    // Stop
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, LOW);
+    delay(200);
+  }
+  
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+// Stunt 11: Figure 8 (with 4WD grip)
+void figure8() {
+  Serial.println("STUNT: Figure 8!");
+  // First circle (right)
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(2000);
+  
+  // Straight section
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(500);
+  
+  // Second circle (left)
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(2000);
+  
+  // Stop
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+// Stunt 12: Victory Dance (combination move)
+void victoryDance() {
+  Serial.println("STUNT: Victory Dance!");
+  
+  // Spin right
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(800);
+  
+  // Spin left
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(800);
+  
+  // Forward
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(500);
+  
+  // Backward
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(500);
+  
+  // Crab walk right
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(400);
+  
+  // Crab walk left
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(400);
+  
+  // Final spin
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(1000);
+  
+  // Stop
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+void stopCar() {
+  Serial.println("Car STOPPED");
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  currentCommand = "stop";
+  server.send(200, "text/plain", "OK");
+}
+
+// ================= SETUP =================
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("");
+  Serial.println("=================================");
+  Serial.println("ESP32 4WD STUNT CAR");
+  Serial.println("=================================");
+  Serial.println("Initializing...");
+
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+
+  // Enable motors (Full speed)
+  digitalWrite(ENA, HIGH);
+  digitalWrite(ENB, HIGH);
+
+  stopCar();
+
+  WiFi.softAP(ssid, password);
+
+  Serial.print("WiFi Network: ");
+  Serial.println(ssid);
+  Serial.print("Password: ");
+  Serial.println(password);
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.softAPIP());
+  Serial.println("=================================");
+  Serial.println("12 Stunts Loaded:");
+  Serial.println("🔄 Tank Spin");
+  Serial.println("🦀 Crab Walk");
+  Serial.println("⭕ Drift Circle");
+  Serial.println("📐 Power Slide");
+  Serial.println("🚁 Helicopter Spin");
+  Serial.println("🐍 Snake Dance");
+  Serial.println("👨‍🎤 Moonwalk");
+  Serial.println("🍩 Donut");
+  Serial.println("🏀 Bounce");
+  Serial.println("🐊 4WD Crawl");
+  Serial.println("8️⃣ Figure 8");
+  Serial.println("🏆 Victory Dance");
+  Serial.println("=================================");
+
+  // ===== Routes =====
+  server.on("/forward", forward);
+  server.on("/backward", backward);
+  server.on("/left", left);
+  server.on("/right", right);
+  server.on("/stop", stopCar);
+  
+  // Stunt routes
+  server.on("/tankspin", tankSpin);
+  server.on("/crabwalk", crabWalk);
+  server.on("/drifcircle", driftCircle);
+  server.on("/powerslide", powerSlide);
+  server.on("/helicopter", helicopterSpin);
+  server.on("/snakedance", snakeDance);
+  server.on("/moonwalk", moonwalk);
+  server.on("/donut", donut);
+  server.on("/bounce", bounce);
+  server.on("/crawl", fourWDCrawl);
+  server.on("/figure8", figure8);
+  server.on("/victory", victoryDance);
+  
+  // Status endpoint
+  server.on("/status", []() {
+    server.send(200, "text/plain", currentCommand);
+  });
+
+  server.on("/", []() {
+    server.send(200, "text/html", R"rawliteral(
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+      <title>4WD Stunt Car | Aesthetic Edition</title>
+      <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        body {
+          min-height: 100vh;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          padding: 16px;
+          transition: background 0.5s ease;
+        }
+        
+        /* Light mode */
+        body.light-mode {
+          background: linear-gradient(145deg, #f0f2f5 0%, #e9ecef 100%);
+        }
+        
+        body.light-mode .container {
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.5);
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.02) inset;
+        }
+        
+        body.light-mode h1 {
+          color: #1a1b1e;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        
+        body.light-mode .subtitle {
+          color: #5e677b;
+        }
+        
+        body.light-mode .status-bar {
+          background: rgba(255, 255, 255, 0.7);
+          border: 1px solid rgba(0, 0, 0, 0.05);
+          color: #1a1b1e;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+        
+        body.light-mode .status-bar.active {
+          background: #2b2f3a;
+          color: #ffffff;
+          border-color: rgba(255,255,255,0.1);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        
+        body.light-mode .section-title {
+          color: #2b2f3a;
+        }
+        
+        body.light-mode .dpad-btn {
+          background: rgba(255, 255, 255, 0.7);
+          border: 1px solid rgba(0, 0, 0, 0.05);
+          color: #2b2f3a;
+          box-shadow: 0 8px 16px -8px rgba(0,0,0,0.08);
+          backdrop-filter: blur(10px);
+        }
+        
+        body.light-mode .dpad-btn:active {
+          background: rgba(255, 255, 255, 0.95);
+          transform: scale(0.96);
+        }
+        
+        body.light-mode .stop-btn {
+          background: #2b2f3a;
+          color: #ffffff;
+          border: none;
+          box-shadow: 0 12px 24px -8px rgba(0,0,0,0.2);
+        }
+        
+        body.light-mode .stop-btn:active {
+          background: #1a1b1e;
+          transform: scale(0.96);
+        }
+        
+        body.light-mode .stunt-btn {
+          background: rgba(255, 255, 255, 0.7);
+          border: 1px solid rgba(0, 0, 0, 0.05);
+          color: #2b2f3a;
+          backdrop-filter: blur(10px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+        
+        body.light-mode .stunt-btn:active {
+          background: rgba(255, 255, 255, 0.95);
+          transform: scale(0.97);
+        }
+        
+        body.light-mode .connection-info {
+          background: rgba(255, 255, 255, 0.5);
+          border: 1px solid rgba(0, 0, 0, 0.03);
+        }
+        
+        body.light-mode .wifi-details {
+          background: rgba(255, 255, 255, 0.9);
+          border: 1px solid rgba(0, 0, 0, 0.05);
+          color: #2b2f3a;
+        }
+        
+        body.light-mode hr {
+          background: linear-gradient(90deg, transparent, rgba(0,0,0,0.1), transparent);
+        }
+        
+        body.light-mode .theme-toggle {
+          background: rgba(255, 255, 255, 0.7);
+          border: 1px solid rgba(0, 0, 0, 0.05);
+          color: #2b2f3a;
+          backdrop-filter: blur(10px);
+        }
+        
+        /* Dark mode */
+        body.dark-mode {
+          background: linear-gradient(145deg, #0f1217 0%, #1a1e26 100%);
+        }
+        
+        body.dark-mode .container {
+          background: rgba(28, 32, 40, 0.85);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+        }
+        
+        body.dark-mode h1 {
+          color: #ffffff;
+          text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+        
+        body.dark-mode .subtitle {
+          color: #8f9bb3;
+        }
+        
+        body.dark-mode .status-bar {
+          background: rgba(42, 47, 60, 0.7);
+          border: 1px solid rgba(255, 255, 255, 0.03);
+          color: #ffffff;
+        }
+        
+        body.dark-mode .status-bar.active {
+          background: #5d6b98;
+          color: #ffffff;
+          border-color: rgba(255,255,255,0.1);
+          box-shadow: 0 8px 24px rgba(93, 107, 152, 0.3);
+        }
+        
+        body.dark-mode .section-title {
+          color: #e9ecef;
+        }
+        
+        body.dark-mode .dpad-btn {
+          background: rgba(42, 47, 60, 0.7);
+          border: 1px solid rgba(255, 255, 255, 0.03);
+          color: #ffffff;
+          backdrop-filter: blur(10px);
+          box-shadow: 0 8px 16px -8px rgba(0,0,0,0.4);
+        }
+        
+        body.dark-mode .dpad-btn:active {
+          background: rgba(62, 68, 84, 0.9);
+          transform: scale(0.96);
+        }
+        
+        body.dark-mode .stop-btn {
+          background: #5d6b98;
+          color: #ffffff;
+          border: none;
+          box-shadow: 0 12px 24px -8px rgba(0,0,0,0.4);
+        }
+        
+        body.dark-mode .stop-btn:active {
+          background: #4a5679;
+          transform: scale(0.96);
+        }
+        
+        body.dark-mode .stunt-btn {
+          background: rgba(42, 47, 60, 0.7);
+          border: 1px solid rgba(255, 255, 255, 0.03);
+          color: #ffffff;
+          backdrop-filter: blur(10px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        body.dark-mode .stunt-btn:active {
+          background: rgba(62, 68, 84, 0.9);
+          transform: scale(0.97);
+        }
+        
+        body.dark-mode .connection-info {
+          background: rgba(42, 47, 60, 0.5);
+          border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+        
+        body.dark-mode .wifi-details {
+          background: rgba(28, 32, 40, 0.9);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          color: #ffffff;
+        }
+        
+        body.dark-mode hr {
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        }
+        
+        body.dark-mode .theme-toggle {
+          background: rgba(42, 47, 60, 0.7);
+          border: 1px solid rgba(255, 255, 255, 0.03);
+          color: #ffffff;
+          backdrop-filter: blur(10px);
+        }
+        
+        .container {
+          width: 100%;
+          max-width: 400px;
+          border-radius: 32px;
+          padding: 28px 20px;
+          position: relative;
+        }
+        
+        .theme-toggle {
+          position: absolute;
+          top: 20px;
+          right: 20px;
+          width: 42px;
+          height: 42px;
+          border-radius: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          cursor: pointer;
+          border: none;
+          transition: all 0.2s ease;
+          z-index: 10;
+        }
+        
+        .theme-toggle:active {
+          transform: scale(0.92);
+        }
+        
+        h1 {
+          font-size: 24px;
+          font-weight: 600;
+          text-align: center;
+          letter-spacing: -0.5px;
+          margin-bottom: 4px;
+          margin-top: 8px;
+        }
+        
+        .subtitle {
+          font-size: 14px;
+          text-align: center;
+          margin-bottom: 24px;
+          font-weight: 400;
+          letter-spacing: 0.2px;
+        }
+        
+        .status-bar {
+          border-radius: 60px;
+          padding: 16px 24px;
+          margin-bottom: 28px;
+          text-align: center;
+          font-size: 15px;
+          font-weight: 500;
+          transition: all 0.3s ease;
+          letter-spacing: 0.3px;
+        }
+        
+        .control-section {
+          margin-bottom: 32px;
+        }
+        
+        .section-title {
+          font-size: 15px;
+          font-weight: 600;
+          margin-bottom: 20px;
+          letter-spacing: 0.3px;
+          text-transform: uppercase;
+          opacity: 0.8;
+        }
+        
+        /* Aesthetic D-pad with centered STOP */
+        .dpad-container {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin: 10px 0 20px 0;
+        }
+        
+        .dpad-grid {
+          display: grid;
+          grid-template-columns: 100px 100px 100px;
+          grid-template-rows: 100px 100px 100px;
+          gap: 8px;
+          justify-content: center;
+          align-items: center;
+        }
+        
+        .grid-center {
+          grid-column: 2;
+          grid-row: 2;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+        
+        .grid-top {
+          grid-column: 2;
+          grid-row: 1;
+        }
+        
+        .grid-left {
+          grid-column: 1;
+          grid-row: 2;
+        }
+        
+        .grid-right {
+          grid-column: 3;
+          grid-row: 2;
+        }
+        
+        .grid-bottom {
+          grid-column: 2;
+          grid-row: 3;
+        }
+        
+        .dpad-btn {
+          width: 100px;
+          height: 100px;
+          border: none;
+          border-radius: 28px;
+          font-size: 15px;
+          font-weight: 500;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        
+        .dpad-btn span:first-child {
+          font-size: 32px;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+        
+        .stop-btn {
+          width: 100px;
+          height: 100px;
+          border: none;
+          border-radius: 28px;
+          font-size: 16px;
+          font-weight: 600;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        
+        .stop-btn span:first-child {
+          font-size: 32px;
+        }
+        
+        .stunt-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+        }
+        
+        .stunt-btn {
+          border: none;
+          border-radius: 20px;
+          padding: 16px 4px;
+          font-size: 13px;
+          font-weight: 500;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          min-height: 88px;
+        }
+        
+        .stunt-btn:active {
+          transform: scale(0.96);
+        }
+        
+        .stunt-btn span:first-child {
+          font-size: 24px;
+          margin-bottom: 4px;
+          filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+        
+        .connection-info {
+          margin-top: 24px;
+          padding: 18px;
+          border-radius: 24px;
+          text-align: center;
+        }
+        
+        .wifi-details {
+          font-family: 'SF Mono', 'Fira Code', monospace;
+          font-size: 13px;
+          padding: 6px 14px;
+          border-radius: 40px;
+          display: inline-block;
+          margin: 4px 4px;
+          font-weight: 500;
+        }
+        
+        .timer-info {
+          font-size: 12px;
+          opacity: 0.7;
+          margin-top: 10px;
+          font-style: italic;
+        }
+        
+        hr {
+          border: none;
+          height: 1px;
+          margin: 24px 0 20px 0;
+        }
+      </style>
+    </head>
+    <body class="light-mode">
+      <div class="container">
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">🌙</button>
+        
+        <h1>4WD STUNT MASTER</h1>
+        <div class="subtitle">12 Stunts • 4-Wheel Drive • 5s Auto-Stop</div>
+        
+        <div class="status-bar" id="statusBar">
+          ⏸️ Ready
+        </div>
+        
+        <div class="control-section">
+          <div class="section-title">DRIVE</div>
+          
+          <!-- D-pad with STOP in center -->
+          <div class="dpad-container">
+            <div class="dpad-grid">
+              <!-- Top -->
+              <div class="grid-top">
+                <button class="dpad-btn" onclick="sendCommand('forward')">
+                  <span>⬆️</span>
+                  <span>Forward</span>
+                </button>
+              </div>
+              
+              <!-- Left -->
+              <div class="grid-left">
+                <button class="dpad-btn" onclick="sendCommand('left')">
+                  <span>⬅️</span>
+                  <span>Left</span>
+                </button>
+              </div>
+              
+              <!-- Center (STOP) -->
+              <div class="grid-center">
+                <button class="stop-btn" onclick="sendCommand('stop')">
+                  <span>⏹️</span>
+                  <span>STOP</span>
+                </button>
+              </div>
+              
+              <!-- Right -->
+              <div class="grid-right">
+                <button class="dpad-btn" onclick="sendCommand('right')">
+                  <span>➡️</span>
+                  <span>Right</span>
+                </button>
+              </div>
+              
+              <!-- Bottom -->
+              <div class="grid-bottom">
+                <button class="dpad-btn" onclick="sendCommand('backward')">
+                  <span>⬇️</span>
+                  <span>Backward</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="control-section">
+          <div class="section-title">STUNTS</div>
+          <div class="stunt-grid">
+            <button class="stunt-btn" onclick="sendCommand('tankspin')">
+              <span>🔄</span>
+              <span>Tank Spin</span>
+            </button>
+            <button class="stunt-btn" onclick="sendCommand('crabwalk')">
+              <span>🦀</span>
+              <span>Crab Walk</span>
+            </button>
+            <button class="stunt-btn" onclick="sendCommand('drifcircle')">
+              <span>⭕</span>
+              <span>Drift Circle</span>
+            </button>
+            <button class="stunt-btn" onclick="sendCommand('powerslide')">
+              <span>📐</span>
+              <span>Power Slide</span>
+            </button>
+            <button class="stunt-btn" onclick="sendCommand('helicopter')">
+              <span>🚁</span>
+              <span>Helicopter</span>
+            </button>
+            <button class="stunt-btn" onclick="sendCommand('snakedance')">
+              <span>🐍</span>
+              <span>Snake Dance</span>
+            </button>
+            <button class="stunt-btn" onclick="sendCommand('moonwalk')">
+              <span>👨‍🎤</span>
+              <span>Moonwalk</span>
+            </button>
+            <button class="stunt-btn" onclick="sendCommand('donut')">
+              <span>🍩</span>
+              <span>Donut</span>
+            </button>
+            <button class="stunt-btn" onclick="sendCommand('bounce')">
+              <span>🏀</span>
+              <span>Bounce</span>
+            </button>
+            <button class="stunt-btn" onclick="sendCommand('crawl')">
+              <span>🐊</span>
+              <span>4WD Crawl</span>
+            </button>
+            <button class="stunt-btn" onclick="sendCommand('figure8')">
+              <span>8️⃣</span>
+              <span>Figure 8</span>
+            </button>
+            <button class="stunt-btn" onclick="sendCommand('victory')">
+              <span>🏆</span>
+              <span>Victory</span>
+            </button>
+          </div>
+        </div>
+        
+        <hr>
+        
+        <div class="connection-info">
+          <p style="margin-bottom: 8px;">
+            <span class="wifi-details">📶 ESP32_CAR</span>
+            <span class="wifi-details" id="ipAddress">🌐 192.168.4.1</span>
+          </p>
+          <p class="timer-info" id="timerInfo">drive commands auto-stop after 5 seconds</p>
+        </div>
+      </div>
+      
+      <script>
+        const ipAddress = window.location.hostname;
+        document.getElementById('ipAddress').innerHTML = `🌐 ${ipAddress}`;
+        
+        let countdownInterval = null;
+        let currentCountdown = 5;
+        
+        function toggleTheme() {
+          const body = document.body;
+          const toggle = document.getElementById('themeToggle');
+          
+          if (body.classList.contains('light-mode')) {
+            body.classList.remove('light-mode');
+            body.classList.add('dark-mode');
+            toggle.textContent = '☀️';
+          } else {
+            body.classList.remove('dark-mode');
+            body.classList.add('light-mode');
+            toggle.textContent = '🌙';
+          }
+        }
+        
+        function sendCommand(cmd) {
+          fetch('/' + cmd);
+          updateStatusBar(cmd);
+          
+          // If it's a drive command, start countdown
+          if (['forward', 'backward', 'left', 'right'].includes(cmd)) {
+            startCountdown(5);
+          } else if (cmd === 'stop') {
+            stopCountdown();
+          }
+        }
+        
+        function startCountdown(seconds) {
+          // Clear any existing countdown
+          if (countdownInterval) {
+            clearInterval(countdownInterval);
+          }
+          
+          currentCountdown = seconds;
+          const statusBar = document.getElementById('statusBar');
+          const timerInfo = document.getElementById('timerInfo');
+          
+          // Update immediately
+          statusBar.textContent = `⬆️ Moving • ${currentCountdown}s`;
+          timerInfo.textContent = `stopping in ${currentCountdown} seconds...`;
+          
+          countdownInterval = setInterval(() => {
+            currentCountdown--;
+            
+            if (currentCountdown > 0) {
+              // Update status bar with current countdown
+              const direction = statusBar.textContent.includes('⬆️') ? '⬆️' : 
+                               statusBar.textContent.includes('⬇️') ? '⬇️' :
+                               statusBar.textContent.includes('⬅️') ? '⬅️' : '➡️';
+              statusBar.textContent = `${direction} Moving • ${currentCountdown}s`;
+              timerInfo.textContent = `stopping in ${currentCountdown} seconds...`;
+            } else {
+              // Time's up - stop the car
+              clearInterval(countdownInterval);
+              countdownInterval = null;
+              statusBar.classList.remove('active');
+              statusBar.textContent = '⏸️ Ready';
+              timerInfo.textContent = 'drive commands auto-stop after 5 seconds';
+            }
+          }, 1000);
+        }
+        
+        function stopCountdown() {
+          if (countdownInterval) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+          }
+          
+          const statusBar = document.getElementById('statusBar');
+          const timerInfo = document.getElementById('timerInfo');
+          statusBar.classList.remove('active');
+          statusBar.textContent = '⏸️ Ready';
+          timerInfo.textContent = 'drive commands auto-stop after 5 seconds';
+        }
+        
+        function updateStatusBar(cmd) {
+          const statusBar = document.getElementById('statusBar');
+          const timerInfo = document.getElementById('timerInfo');
+          
+          const statusMap = {
+            'forward': '⬆️ Moving Forward',
+            'backward': '⬇️ Moving Backward',
+            'left': '⬅️ Spinning Left',
+            'right': '➡️ Spinning Right',
+            'tankspin': '🔄 Tank Spin',
+            'crabwalk': '🦀 Crab Walk',
+            'drifcircle': '⭕ Drift Circle',
+            'powerslide': '📐 Power Slide',
+            'helicopter': '🚁 Helicopter Spin',
+            'snakedance': '🐍 Snake Dance',
+            'moonwalk': '👨‍🎤 Moonwalk',
+            'donut': '🍩 Donut',
+            'bounce': '🏀 Bounce',
+            'crawl': '🐊 4WD Crawl',
+            'figure8': '8️⃣ Figure 8',
+            'victory': '🏆 Victory Dance',
+            'stop': '⏸️ Ready'
+          };
+          
+          if (cmd !== 'stop') {
+            statusBar.textContent = statusMap[cmd] || '⏸️ Ready';
+            statusBar.classList.add('active');
+          } else {
+            statusBar.textContent = statusMap.stop;
+            statusBar.classList.remove('active');
+          }
+        }
+        
+        // Prevent context menu on long press
+        document.querySelectorAll('button').forEach(btn => {
+          btn.addEventListener('contextmenu', (e) => e.preventDefault());
+        });
+        
+        // Check system preference for dark mode
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.body.classList.remove('light-mode');
+          document.body.classList.add('dark-mode');
+          document.getElementById('themeToggle').textContent = '☀️';
+        }
+      </script>
+    </body>
+    </html>
+    )rawliteral");
+  });
+
+  server.begin();
+  Serial.println("Web Server Started!");
+  Serial.println("Connect to WiFi: ESP32_CAR");
+  Serial.println("Password: 12345678");
+  Serial.println("Open browser to: http://192.168.4.1");
+  Serial.println("=================================");
+}
+
+// ================= LOOP =================
+
+void loop() {
+  server.handleClient();
+  
+  // Auto-stop after command duration (only for basic drive commands)
+  if (currentCommand != "stop" && (millis() - commandStartTime > commandDuration)) {
+    if (currentCommand == "forward" || currentCommand == "backward" || 
+        currentCommand == "left" || currentCommand == "right") {
+      Serial.println("Auto-stop after 5 seconds");
+      digitalWrite(IN1, LOW);
+      digitalWrite(IN2, LOW);
+      digitalWrite(IN3, LOW);
+      digitalWrite(IN4, LOW);
+      currentCommand = "stop";
+    }
+  }
+}
+
+==================================================
+END OF CODE
+==================================================
